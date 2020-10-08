@@ -3,6 +3,7 @@ setup(
     name='kafka-connect-python-helper',
     version='0.0.1',
     description='Toolset for Kafka Connect REST API',
+    long_description='This package can be used to simplify HTTP commands for the Kafka Connect REST API. The package is created spefically for deploying connectors automatically, but can also be used to simplify one-time commands.'
     url='https://github.com/MrMarshall/kafka-connect-python-helper',
     author='Marcel Renders',
     license='MIT',

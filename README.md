@@ -1,7 +1,7 @@
-# AACB Kafka Connect Helper
+# Kafka Connect Python Helper
 
 ## Description
-This package can be used to simplify HTTP command for the Kafka Connect REST API. The package is created spefically for deploying connectors automatically, but can also be used to simplify one-time commands.
+This package can be used to simplify HTTP commands for the Kafka Connect REST API. The package is created spefically for deploying connectors automatically, but can also be used to simplify one-time commands.
 
 ## Dependencies and limitations
 The package heavily relies on the Requests package and is currently designed to expect that the Requests session is created upfront.
