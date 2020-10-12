@@ -1,0 +1,2 @@
+requests
+kafka-connect-python-helper==0.0.2

@@ -29,7 +29,7 @@ class Connector:
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 409:
                 if not retry:
-                    logging.warn(f"Concurrency error occurred while getting remote config. Retrying in {backoff_seconds} seconds...")
+                    logging.warn(f"Concurrency error while getting remote config. Retrying in {backoff_seconds} seconds...")
                     logging.debug(e)
                     time.sleep(backoff_seconds)
                     return self.get_remote_config(True)
@@ -71,7 +71,7 @@ class Connector:
         url = f"{self.base_url}/connectors/{self.name}/status"
         return self.session.get(url=url)
 
-    def poll_status(self):
+    def poll_status(self, retry=False):
         i = 0
         max_retries = 90
         backoff_seconds = 2
@@ -87,11 +87,22 @@ class Connector:
                     logging.info(f"Connector {self.name} created successfully in RUNNING state!")
                     return
                 elif state == "FAILED":
-                    logging.warn(f"Try ${i} of {max_retries}: ${self.name} created but in FAILED state. Sleeping {backoff_seconds} seconds")
+                    logging.warn(f"Try {i} of {max_retries}: {self.name} created but still in FAILED state. Sleeping {backoff_seconds} seconds")
                 else:
                     logging.warn(f"Connector state {state}, sleeping {backoff_seconds}...")
+                i += 1
                 time.sleep(backoff_seconds)
             except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    if not retry:
+                        logging.warn(f"Connector {self.name} doesn't exist yet. Retrying in {backoff_seconds} seconds...")
+                        logging.debug(e)
+                        time.sleep(backoff_seconds)
+                        return self.poll_status(True)
+                    else:
+                        logging.error(f"Connector {self.name} doesn't exist after retry. Exiting...")
+                        logging.error(e)
+                        sys.exit(1)
                 logging.error(e)
                 sys.exit(1)
             except requests.exceptions.RequestException:
