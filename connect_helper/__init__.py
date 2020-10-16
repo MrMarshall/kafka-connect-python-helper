@@ -16,7 +16,7 @@ class Connector:
     def _check_empty_name(self):
         if not self.name:
             logging.error(f"{self.__class__} attribute 'name' not set")
-            sys.exit(1)
+            raise
 
     def get_remote_config(self, retry=False):
         self._check_empty_name()
@@ -36,12 +36,12 @@ class Connector:
                 else:
                     logging.error(f"Concurrency error occurred second time while retrieving remote config. Exiting...")
                     logging.error(e)
-                    sys.exit(1)
+                    raise
             logging.error(e)
-            sys.exit(1)
+            raise
         except requests.exceptions.RequestException:
             logging.error(e)
-            sys.exit(1)
+            raise
 
     def delete(self):
         self._check_empty_name()
@@ -52,7 +52,7 @@ class Connector:
         except self.session.exceptions.RequestException as e:
             logging.error(f"Error occurred in DELETE for {self.name}")
             logging.error(e)
-            sys.exit(1)
+            raise
 
     def put(self, body):
         self._check_empty_name()
@@ -64,7 +64,7 @@ class Connector:
         except self.session.exceptions.RequestException as e:
             logging.error(f"Error occurred in PUT for {self.name}")
             logging.error(e)
-            sys.exit(1)
+            raise
 
     def get_status(self):
         self._check_empty_name()
@@ -102,15 +102,15 @@ class Connector:
                     else:
                         logging.error(f"Connector {self.name} doesn't exist after retry. Exiting...")
                         logging.error(e)
-                        sys.exit(1)
+                        raise
                 logging.error(e)
-                sys.exit(1)
+                raise
             except requests.exceptions.RequestException:
                 logging.error(e)
-                sys.exit(1)
+                raise
         else:
             logging.error("Too many attempts waiting for connector to become healthy. Exiting...")
-            sys.exit(1)
+            raise
 
 class ConnectHelper():
     """ Initialize Connect session """
