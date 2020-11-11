@@ -2,6 +2,7 @@ import requests
 import time
 import sys
 import logging
+import json
 
 class Connector:
     """ Controls single connector """
@@ -18,9 +19,8 @@ class Connector:
             logging.error(f"{self.__class__} attribute 'name' not set")
             raise AttributeError
 
-    def get_remote_config(self, retry=False):
+    def get_remote_config(self, retry=False, backoff_seconds=2):
         self._check_empty_name()
-        backoff_seconds = 3
         url = f"{self.base_url}/connectors/{self.name}"
         try:
             r = self.session.get(url=url)
@@ -57,24 +57,24 @@ class Connector:
         r.raise_for_status()
         return r
 
-    def poll_status(self, max_retries=90, backoff_seconds=2):
+    def poll_status(self, max_retries=90, backoff_seconds=2, minimal_running_tasks=1):
         self._check_empty_name()
 
         connector_running = False
         remote_config = self.get_remote_config()
-        count_expected_tasks = remote_config.json()["config"]["tasks.max"]
 
         logging.info(f"Waiting for connector {self.name} to become healthy. Max retries: {max_retries}")
         for i in range(0, max_retries):
+            logging.info(f"Sleeping {backoff_seconds} seconds...")
             time.sleep(backoff_seconds)
             try:
                 status = self.get_status()
                 status_result = status.json()
-                logging.debug(status_result)
+                logging.debug(json.dumps(status_result, indent=2))
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 404:
                     if not retry:
-                        logging.warn(f"Connector {self.name} doesn't exist yet. Retrying in {backoff_seconds} seconds...")
+                        logging.warn(f"Connector {self.name} doesn't exist yet")
                         logging.debug(e)
                         time.sleep(backoff_seconds)
                         return self.poll_status(True)
@@ -89,42 +89,32 @@ class Connector:
                 # Check connector state
                 connector_state = status_result["connector"]["state"]
                 if connector_state == "RUNNING":
-                    logging.info(f"Connector {self.name} is in RUNNING state")
+                    logging.info(f"Connector {self.name} is in {connector_state} state")
                     connector_running = True
-                elif state == "FAILED":
-                    logging.warn(f"Try {i + 1} of {max_retries}: {self.name} created but still in FAILED state. Sleeping {backoff_seconds} seconds")
-                    continue
                 else:
-                    logging.warn(f"Connector state {state}, sleeping {backoff_seconds}...")
+                    logging.warn(f"Try {i + 1} of {max_retries}: {self.name} is still in {connector_state} state")
                     continue
 
             if connector_running:
-                # Check number of tasks
-                count_actual_tasks = len(status_result["tasks"])
-                if int(count_actual_tasks) < int(count_expected_tasks):
-                    logging.warn(f"Expected tasks: {count_expected_tasks}, actual tasks: {count_actual_tasks}. Sleeping {backoff_seconds}...")
+                if len(status_result["tasks"]) < 1:
+                    logging.warn(f"No tasks created yet")
                     continue
 
-                # Check state of tasks
-                tasks_healthy = True
-                for task in status_result["tasks"]:
-                    state = task["state"]
-                    if task["state"] == "RUNNING":
-                        logging.info(f"Task {task['id']} is in RUNNING state")
-                    else:
-                        logging.warn(f"Task {task['id']} is in {state} state")
-                        tasks_healthy = False
-
-                if not tasks_healthy:
-                    logging.warn(f"Try {i + 1} of {max_retries}: not all tasks healthy yet. Sleeping {backoff_seconds}...")
+                if any(task["state"] == "FAILED" for task in status_result["tasks"]):
+                    logging.warn(f"Try {i + 1} of {max_retries}: one or more failed tasks")
                     continue
 
-                logging.info("All tasks are in RUNNING state. The connector is healthy!")
+                running_tasks = sum(task["state"] == "RUNNING" for task in status_result["tasks"])
+                if running_tasks < minimal_running_tasks:
+                    logging.info(f"Try {i + 1} of {max_retries}: only {running_tasks} running tasks, expecting {minimal_running_tasks}")
+                    continue
+
+                logging.info(json.dumps(status_result, indent=2))
+                logging.info(f"{running_tasks} running tasks. The connector is healthy!")
                 return
-
         else:
+            logging.error(json.dumps(status_result, indent=2))
             logging.error("Too many attempts waiting for connector to become healthy. Exiting...")
-            logging.debug(status_result)
             raise TimeoutError
 
 class ConnectHelper():
