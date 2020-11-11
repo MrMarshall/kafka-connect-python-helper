@@ -57,11 +57,13 @@ class Connector:
         r.raise_for_status()
         return r
 
-    def poll_status(self, max_retries=90, backoff_seconds=2, minimal_running_tasks=1):
+    def poll_status(self, max_retries=90, backoff_seconds=2, minimal_running_tasks=1, initial_sleep_seconds=3):
         self._check_empty_name()
 
         connector_running = False
-        remote_config = self.get_remote_config()
+
+        logging.info(f"Intial sleep {initial_sleep_seconds}...")
+        time.sleep(initial_sleep_seconds)
 
         logging.info(f"Waiting for connector {self.name} to become healthy. Max retries: {max_retries}")
         for i in range(0, max_retries):
