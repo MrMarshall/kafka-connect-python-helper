@@ -57,7 +57,7 @@ class Connector:
         r.raise_for_status()
         return r
 
-    def poll_status(self, max_retries=90, backoff_seconds=2, minimal_running_tasks=1, initial_sleep_seconds=3):
+    def poll_status(self, max_retries=90, backoff_seconds=2, minimal_running_tasks=1, initial_sleep_seconds=3, retry=False):
         self._check_empty_name()
 
         connector_running = False
@@ -79,7 +79,7 @@ class Connector:
                         logging.warn(f"Connector {self.name} doesn't exist yet")
                         logging.debug(e)
                         time.sleep(backoff_seconds)
-                        return self.poll_status(True)
+                        return self.poll_status(retry=True)
                     else:
                         logging.error(f"Connector {self.name} doesn't exist after retry. Exiting...")
                         logging.error(e)
